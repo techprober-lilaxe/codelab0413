@@ -144,9 +144,9 @@ FILL = arr(L)
 S2 = Image.new('L', (W, H), 0)
 eng = render_latin('CHINA AIR FORCE', barlow(700, 96), tracking=18)
 place(S2, eng, (W - eng.width) // 2, TY - eng.height - 130)
-sub = render_cjk('长 春 航 展', 'noto-sans-sc', 700, 84, tracking=0)
-cs = render_latin('CHANGCHUN  AIRSHOW', barlow(600, 46), tracking=10)
-by = TY + th + 130
+sub = render_cjk('长春航展', 'noto-sans-sc', 900, int(os.environ.get('SUBS', 150)), tracking=int(os.environ.get('SUBT', 36)))
+cs = render_latin('CHANGCHUN  AIRSHOW', barlow(600, 50), tracking=int(os.environ.get('CST', 14)))
+by = TY + th + 110
 place(S2, sub, (W - sub.width) // 2, by)
 place(S2, cs, (W - cs.width) // 2, by + sub.height + 26)
 
@@ -165,7 +165,7 @@ sa = (STROKE * np.clip(BODY + A * 0.6, 0, 1))[..., None] * 0.95
 out = out * (1 - sa) + CREAM * sa
 s2 = arr(S2)[..., None]
 sh2 = arr(S2.filter(ImageFilter.GaussianBlur(10)))[..., None]
-out = out * (1 - 0.30 * sh2) + np.array([0.08, 0.16, 0.26]) * 0.30 * sh2
+out = out * (1 - 0.42 * sh2) + np.array([0.06, 0.13, 0.22]) * 0.42 * sh2
 out = out * (1 - s2) + CREAM * s2
 out += grain(out.shape[:2], 0.012, 21)[..., None]
 name = os.environ.get('OUT', 'v6.png')
