@@ -7,6 +7,13 @@ from common import *
 src = Image.open(os.path.join(HERE, 'hd_mon.png')).convert('RGB')
 a = arr(src)
 h, w = a.shape[:2]
+# patch the missing tile on the pedestal (bluish hole at x303-354, y1167-1207): copy the neighbouring tile
+PX0, PX1, PY0, PY1 = 300, 358, 1164, 1209
+donor = a[PY0:PY1, PX1 + 4:PX1 + 4 + (PX1 - PX0)].copy()
+pm = np.zeros((PY1 - PY0, PX1 - PX0), np.float32)
+pm[3:-3, 3:-3] = 1
+pm = np.asarray(Image.fromarray((pm * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(2))).astype(np.float32)[..., None] / 255
+a[PY0:PY1, PX0:PX1] = a[PY0:PY1, PX0:PX1] * (1 - pm) + donor * pm
 
 def boxblur(x, r):
     for _ in range(3):
@@ -163,9 +170,6 @@ sx = HX - SSZ - int(os.environ.get('SGAP', 70))
 sy = HY + cellh + int(os.environ.get('SDY', 220))
 for i, c in enumerate(small_chars):
     place(T, c, sx + (SSZ - c.width) // 2, sy + i * int(SSZ * 1.25))
-yr = render_cjk('1935', SF_, 0, int(SSZ * 0.82))
-yr = yr.rotate(-90, expand=True)                       # read top-to-bottom, like the column above
-place(T, yr, sx + (SSZ - yr.width) // 2, sy + 4 * int(SSZ * 1.25) + 30)
 Ta = arr(T)
 outc = outc * (1 - Ta[..., None] * 0.96) + CREAM * Ta[..., None] * 0.96
 
