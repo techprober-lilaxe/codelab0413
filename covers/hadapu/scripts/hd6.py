@@ -154,7 +154,7 @@ outc = o
 
 # ---------- type: big vertical brush 哈达铺 + small 到陕北去 1935 ----------
 CREAM = np.array([242, 233, 212]) / 255.0
-HF = os.environ.get('HF', 'glob:cf/hlxsjt/package/dist/*/*.woff2')
+HF = os.environ.get('HF', 'file:~/fonts/user/zqcyh.ttf')   # 钟齐蔡云汉毛笔行书（用户提供，不入库；非商用授权）
 HS = int(os.environ.get('HS', 470))
 chars = [render_cjk(ch, HF, 0, HS) for ch in '哈达铺']
 colw = max(c.width for c in chars)
@@ -167,7 +167,9 @@ SF_ = os.environ.get('SFONT', 'glob:cf/hwmct/package/dist/*/*.woff2')
 SSZ = int(os.environ.get('SSZ', 96))
 small_chars = [render_cjk(ch, SF_, 0, SSZ) for ch in '到陕北去']
 sx = HX - SSZ - int(os.environ.get('SGAP', 70))
-sy = HY + cellh + int(os.environ.get('SDY', 220))
+title_bottom = int(np.nonzero(np.asarray(T).max(1) > 8)[0].max())     # ink bottom of 铺
+step = int(SSZ * 1.25)
+sy = title_bottom - (3 * step + small_chars[3].height) + 1             # bottoms of the two columns line up
 for i, c in enumerate(small_chars):
     place(T, c, sx + (SSZ - c.width) // 2, sy + i * int(SSZ * 1.25))
 Ta = arr(T)

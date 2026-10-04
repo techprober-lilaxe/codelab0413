@@ -68,7 +68,12 @@ def render_cjk(text, pkg, weight, size, tracking=0, by_ink=True):
         if ch == ' ':
             pieces.append(None)
             continue
-        f = fontlib.glob_font(pkg[5:], ch, size) if pkg.startswith('glob:') else fontlib.cjk_font(pkg, weight, ch, size)
+        if pkg.startswith('file:'):
+            f = ImageFont.truetype(os.path.expanduser(pkg[5:]), size)
+        elif pkg.startswith('glob:'):
+            f = fontlib.glob_font(pkg[5:], ch, size)
+        else:
+            f = fontlib.cjk_font(pkg, weight, ch, size)
         m = Image.new('L', (size * 2, size * 2), 0)
         ImageDraw.Draw(m).text((size // 2, size // 4), ch, font=f, fill=255)
         pieces.append((m, f.getlength(ch)))
