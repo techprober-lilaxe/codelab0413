@@ -65,6 +65,8 @@ FE = int(os.environ.get('FE', 200))
 ex = np.minimum(xx, w - 1 - xx); ey = np.minimum(yy, h - 1 - yy)
 edge = smoothstep(0, FE, np.minimum(ex, ey).astype(np.float32)) ** 1.5
 body = body * (np.minimum(ex, ey) > 8)                 # border pixels of the source are junk
+# only the airframe counts as body; dark smoke bits elsewhere (e.g. a trail at the top edge) stay smoke
+body = body * ((xx > 360) & (xx < 1490) & (yy > 290) & (yy < 980))
 alpha = np.maximum(smoke * edge, body)
 # decontaminate: remove the old white sky from semi-transparent pixels
 af = np.clip(alpha, 1e-3, 1)[..., None]
