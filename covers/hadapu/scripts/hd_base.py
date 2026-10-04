@@ -1,0 +1,83 @@
+# 哈达铺 · 纪念碑版：片尾 44.5s「到陕北去」纪念碑满版（720x1280 放大 3x 竖裁 3:4），
+# 天空压深成饱和的蓝、碑体红更浓；右侧碑尖旁的天空里竖排米白毛笔大字「哈达铺」
+from common import *
+
+src = Image.open(os.path.join(HERE, 'hd_mon.png')).convert('RGB')
+S = 3.0
+CY0 = int(os.environ.get('CY0', 230))            # source y at canvas top (keeps the spike tips)
+a = arr(src)
+
+# ---------- grade (source res) ----------
+r, g_, b = a[..., 0], a[..., 1], a[..., 2]
+sky = smoothstep(-0.10, 0.04, b - r)              # blue sky + clouds (clouds are slightly blue too)
+sky = arr(Image.fromarray((sky * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(1.0)))
+yv = (np.arange(a.shape[0]) / a.shape[0])[:, None]
+# deepen the sky: polariser-like — pull the blue down & richer, more toward the top, clouds keep their whites
+lum = a.mean(2)
+cloud = smoothstep(0.76, 0.86, lum)
+deep = np.array([38, 92, 178]) / 255.0
+amt = (0.60 - 0.25 * yv) * (1 - 0.85 * cloud)
+skyc = a * (1 - amt[..., None]) + deep * amt[..., None] * (a / np.maximum(a.mean(2, keepdims=True), 1e-3)) ** 0.0
+skyc = np.clip(skyc, 0, 1)
+out = a * (1 - sky[..., None]) + skyc * sky[..., None]
+# the monument: a touch richer red, deeper shadows
+red = (1 - sky)[..., None]
+m_ = out.mean(2, keepdims=True)
+rich = np.clip(m_ + (out - m_) * 1.15, 0, 1)
+rich = np.clip((rich - 0.5) * 1.08 + 0.5 - 0.02, 0, 1)
+out = out * (1 - red) + rich * red
+# de-block the sky: blur only among sky pixels (normalized), so the red never bleeds in
+def boxblur(x, r):
+    for _ in range(3):
+        for ax in (0, 1):
+            pad = [(0, 0)] * x.ndim; pad[ax] = (r + 1, r)
+            c = np.cumsum(np.pad(x, pad, mode='edge'), axis=ax)
+            x = (np.take(c, range(2 * r + 1, c.shape[ax]), axis=ax) - np.take(c, range(0, c.shape[ax] - 2 * r - 1), axis=ax)) / (2 * r + 1)
+    return x
+core = (sky > 0.95).astype(np.float32)
+core = arr(Image.fromarray((core * 255).astype(np.uint8)).filter(ImageFilter.MinFilter(5)))   # stay off the edge
+R = int(os.environ.get('DB', 4))
+num = boxblur(out * core[..., None], R); den = boxblur(core, R)[..., None]
+smooth = num / np.maximum(den, 1e-3)
+w_ = (core * np.clip(den[..., 0] * 1.5, 0, 1))[..., None]
+out = out * (1 - w_) + smooth * w_
+# the 1-2px rim between sky and red: pull it toward the nearby sky so there's no light halo
+rim = np.clip(sky - core, 0, 1) * (sky > 0.15)
+wide = boxblur(out * core[..., None], 3) / np.maximum(boxblur(core, 3), 1e-3)[..., None]
+out = out * (1 - 0.6 * rim[..., None]) + wide * 0.6 * rim[..., None]
+SKY = sky
+# warm late light overall
+out = out * np.array([1.02, 1.0, 0.98])
+
+# ---------- upscale + crop ----------
+im = img(out)
+big = im.resize((int(720 * S), int(1280 * S)), Image.LANCZOS)
+sharp = arr(big.filter(ImageFilter.UnsharpMask(radius=3, percent=60, threshold=2)))
+skyB = arr(img(SKY).resize(big.size, Image.BICUBIC))[..., 0] if SKY.ndim == 2 else None
+skyB = arr(Image.fromarray((SKY * 255).astype(np.uint8)).resize(big.size, Image.BICUBIC))
+monB = smoothstep(0.6, 0.1, skyB)                      # sharpen the monument only (no halo into the sky)
+monB = arr(Image.fromarray((monB * 255).astype(np.uint8)).filter(ImageFilter.MinFilter(7)))[..., None]
+bigA = arr(big) * (1 - monB) + sharp * monB
+canvas = bigA[int(CY0 * S):int(CY0 * S) + H, :W].copy()
+
+# export the clean base + sky matte (canvas space) for the layered versions
+skyC = arr(Image.fromarray((SKY * 255).astype(np.uint8)).resize(big.size, Image.BICUBIC))[int(CY0 * S):int(CY0 * S) + H, :W]
+np.save(os.path.join(HERE, 'hd_base.npy'), canvas.astype(np.float16))
+np.save(os.path.join(HERE, 'hd_sky.npy'), skyC.astype(np.float16))
+print('saved base')
+# keep only sky connected to the frame edges (white inscriptions on the monument are not sky)
+q = 4
+small = np.asarray(Image.fromarray(((skyC > 0.5) * 255).astype(np.uint8)).resize((W // q, H // q), Image.NEAREST)) > 127
+mark = np.zeros_like(small)
+mark[0, :] = small[0, :]; mark[:, 0] = small[:, 0]; mark[:, -1] = small[:, -1]
+while True:
+    grow = mark.copy()
+    grow[1:] |= mark[:-1]; grow[:-1] |= mark[1:]; grow[:, 1:] |= mark[:, :-1]; grow[:, :-1] |= mark[:, 1:]
+    grow &= small
+    if (grow == mark).all():
+        break
+    mark = grow
+conn = Image.fromarray((mark * 255).astype(np.uint8)).resize((W, H), Image.NEAREST).filter(ImageFilter.MaxFilter(2 * q + 1))
+skyC2 = skyC * arr(conn)
+print('sky>0.5', round((skyC > 0.5).mean(), 3), 'connected', round(mark.mean(), 3))
+np.save(os.path.join(HERE, 'hd_sky.npy'), skyC2.astype(np.float16))

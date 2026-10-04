@@ -23,3 +23,12 @@ def cjk_path(pkg, weight, ch):
     raise KeyError(ch)
 def cjk_font(pkg, weight, ch, size):
     return ImageFont.truetype(cjk_path(pkg,weight,ch), size)
+_gcm = {}
+def glob_font(pattern, ch, size):
+    """any split CJK webfont: pattern is a glob of woff2 files under ~/fonts"""
+    if pattern not in _gcm:
+        _gcm[pattern] = [(w, set(TTFont(w).getBestCmap().keys())) for w in sorted(glob.glob(f'{ROOT}/{pattern}'))]
+    for w, cm in _gcm[pattern]:
+        if ord(ch) in cm:
+            return ImageFont.truetype(_ttf(w), size)
+    raise KeyError(ch)
