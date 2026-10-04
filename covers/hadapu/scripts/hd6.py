@@ -161,8 +161,12 @@ colw = max(c.width for c in chars)
 cellh = int(HS * float(os.environ.get('HLH', 1.02)))
 HX = int(os.environ.get('HX', 1420)); HY = int(os.environ.get('HY', 200))
 T = Image.new('L', (W, H), 0)
+# stack by ink: equal visible gap between characters (each glyph is already cropped to its own ink)
+GAP = int(os.environ.get('HGAP', 70))
+yc = HY
 for i, c in enumerate(chars):
-    place(T, c, HX + (colw - c.width) // 2 + int(os.environ.get('JIT', 30)) * (1 if i == 1 else 0), HY + i * cellh)
+    place(T, c, HX + (colw - c.width) // 2 + int(os.environ.get('JIT', 30)) * (1 if i == 1 else 0), yc)
+    yc += c.height + GAP
 SF_ = os.environ.get('SFONT', 'glob:cf/hwmct/package/dist/*/*.woff2')
 SSZ = int(os.environ.get('SSZ', 96))
 small_chars = [render_cjk(ch, SF_, 0, SSZ) for ch in '到陕北去']
